@@ -3,12 +3,9 @@ import numpy as np
 import torch
 import sys
 import pandas as pd
-print(sys.executable)
-print(np.__version__)
-print(torch.__version__)
-from src.data.loader import load_data
-from src.data.preprocessing import preprocess_data
-from src.data.utils import split_data
+from data.loader import load_data
+from data.preprocessing import preprocess_data
+from data.utils import split_data
 
 # Dummy model (replace with your real model later)
 class DummyTimeSeriesModel:
