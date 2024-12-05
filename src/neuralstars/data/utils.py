@@ -23,7 +23,7 @@ def split_data(data: pd.DataFrame, train_ratio=0.8) -> Tuple[pd.DataFrame, pd.Da
 
 def generate_synthetic_dataset():
     # Define time range: hourly data from 2012-10-01 to 2016-09-30
-    time_index = pd.date_range(start="2012-10-01 00:00", end="2016-09-30 23:00", freq="H")
+    time_index = pd.date_range(start="2012-10-01 00:00", end="2016-09-30 23:00", freq="h")
     
     # Number of data points
     n_points = len(time_index)
@@ -46,6 +46,9 @@ def generate_synthetic_dataset():
         "Variable3": var3
     })
     
+    # Ensure the 'Date-UTC' column is a datetime object
+    data['Date-UTC'] = pd.to_datetime(data['Date-UTC'])
+
     # Save to CSV
     data.to_csv("synthetic_caos_dataset.csv", index=False, sep=";")
     

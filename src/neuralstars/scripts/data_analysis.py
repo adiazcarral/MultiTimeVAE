@@ -27,9 +27,9 @@ def analyze_data(dataset_path=None, use_synthetic=False):
         print(f"Loading real dataset from {dataset_path}...")
         data = load_data(dataset_path)
     
-    # Ensure 'Date-UTC' is a datetime type
-    data['Date-UTC'] = pd.to_datetime(data['Date-UTC'])
-    data.set_index('Date-UTC', inplace=True)
+    ## Ensure 'Date-UTC' is a datetime type
+    # data['Date-UTC'] = pd.to_datetime(data['Date-UTC'])
+    # data.set_index('Date-UTC', inplace=True)
     
     # Summary statistics
     print("\nBasic Statistics:")
