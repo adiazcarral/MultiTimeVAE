@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from neuralstars.data.loader import load_data
+from neuralstars.data.preprocessing import normalize_data, split_data
+from neuralstars.data.utils import print_summary
 
 def analyze_data(file_path):
     # Load the data
@@ -60,5 +62,5 @@ def analyze_data(file_path):
             print()
 
 if __name__ == "__main__":
-    file_path = "path/to/attert_dataset.csv"  # Update with the dataset's file path
+    file_path = "/Users/diaz/data/caos/CAOS_IT_Disdro_MRR_Data.txt"  # Update with the dataset's file path
     analyze_data(file_path)
