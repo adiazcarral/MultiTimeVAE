@@ -16,9 +16,9 @@ def train_cvae(model, train_loader, val_loader, epochs, learning_rate, device):
         train_loss = 0
         for batch in train_loader:
             x_list = [x.to(device) for x in batch]
-
+            
             # Ensure x_list length matches the model's modalities
-            assert len(x_list) == model.num_modalities, \
+            assert len(x_list) == model.num_modalities-1, \
                 f"x_list length ({len(x_list)}) does not match model modalities ({model.num_modalities})."
 
             # Randomly select the target variable to predict (condition on others)
@@ -30,6 +30,7 @@ def train_cvae(model, train_loader, val_loader, epochs, learning_rate, device):
             optimizer.zero_grad()
 
             # Forward pass
+            # print(x_list[:][0])
             reconstruction, z_mean, z_log_var = model(x_list, target_index)
 
             # Compute reconstruction loss for the target variable

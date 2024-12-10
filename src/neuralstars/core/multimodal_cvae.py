@@ -24,7 +24,7 @@ class LSTMDecoder(nn.Module):
 
     def forward(self, z, condition):
         # Repeat latent vector to match sequence length
-        z_repeated = z.unsqueeze(1).repeat(1, condition.size(1), 1)
+        z_repeated = z.unsqueeze(1).repeat(1, condition.size(-1), 1)
         lstm_input = torch.cat([z_repeated, condition], dim=2)
         lstm_output, _ = self.lstm(lstm_input)
         reconstruction = self.fc_out(lstm_output)
@@ -72,7 +72,7 @@ class MultiModalCVAE(nn.Module):
         z_log_vars = []
 
         for i, encoder in enumerate(self.encoders):
-            z_mean, z_log_var = encoder(x_list[i])  # Encode each variable
+            z_mean, z_log_var = encoder(x_list[:][i-1])  # Encode each variable
             z_means.append(z_mean)
             z_log_vars.append(z_log_var)
 
@@ -83,7 +83,7 @@ class MultiModalCVAE(nn.Module):
         # Combine latent representations of conditioning variables
         condition = torch.cat(
             [z_means[i] for i in range(self.num_modalities) if i != target_index],
-            dim=1
+            dim=-1
         )
 
         # Decode the target variable using its latent space and the condition
