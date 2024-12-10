@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 from typing import Tuple
+import scipy.io
 
 def split_data(data: pd.DataFrame, train_ratio=0.8) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -58,3 +59,28 @@ def generate_synthetic_dataset():
 # Generate and preview dataset
 synthetic_data = generate_synthetic_dataset()
 # print(synthetic_data.head())
+
+def load_mat(file_path: str, key: str):
+    """
+    Load and inspect a .mat file.
+
+    Args:
+        file_path (str): Path to the .mat file.
+        key (str): The key to extract the main data from the .mat file.
+
+    Returns:
+        pd.DataFrame: The loaded data as a pandas DataFrame.
+    """
+    data = scipy.io.loadmat(file_path)
+
+    # Inspect the keys in the loaded data
+    print("Keys in the .mat file:", data.keys())
+
+    if key in data:
+        df = pd.DataFrame(data[key])
+        # Display the first few rows of the dataframe
+        print("Head of the data:")
+        print(df.head())
+        return df
+    else:
+        raise KeyError(f"Key '{key}' not found in the .mat file.")

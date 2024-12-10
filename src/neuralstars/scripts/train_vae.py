@@ -5,10 +5,12 @@ import pandas as pd
 import numpy as np
 from torch.amp import autocast, GradScaler
 from neuralstars.core.multimodal_vae import VAE, loss_function
+from neuralstars.data.utils import load_mat
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def load_data(file_path: str) -> pd.DataFrame:
+""" def load_data(file_path: str) -> pd.DataFrame:
     try:
         data = pd.read_csv(
             file_path,
@@ -22,6 +24,18 @@ def load_data(file_path: str) -> pd.DataFrame:
     except FileNotFoundError:
         raise FileNotFoundError(f"File not found at {file_path}")
     except Exception as e:
+        raise ValueError(f"An error occurred while loading the dataset: {e}") """
+
+def load_data(file_path: str) -> pd.DataFrame: 
+    try: 
+        data = load_mat(file_path, key='toydata') # Update this key as needed 
+        print(f"Dataset loaded successfully with {data.shape[0]} rows and {data.shape[1]} columns.") 
+        return data 
+    except FileNotFoundError: 
+        raise FileNotFoundError(f"File not found at {file_path}") 
+    except KeyError as e: 
+        raise KeyError(e) 
+    except Exception as e: 
         raise ValueError(f"An error occurred while loading the dataset: {e}")
 
 class TimeSeriesDataset(Dataset):
@@ -38,7 +52,7 @@ class TimeSeriesDataset(Dataset):
 def main():
     # Load dataset from CSV
     csv_file = 'synthetic_caos_dataset.csv'
-    seq_len = 500  # Reduced sequence length to 500
+    seq_len = 2000  # Reduced sequence length to 500
     data = load_data(csv_file).values
 
     # Split dataset into train, validation, and test sets based on time
@@ -58,8 +72,8 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     input_dims = [1, 1, 1]
-    hidden_dim = 128
-    latent_dim = 16
+    hidden_dim = 64
+    latent_dim = 8
 
     model = VAE(input_dims, hidden_dim, latent_dim).to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -67,6 +81,9 @@ def main():
     scaler = GradScaler('cuda')  # Initialize GradScaler for mixed precision training
 
     print("Starting training...")
+
+    train_losses = []
+    val_losses = []
 
     for epoch in range(100):
         model.train()
@@ -87,9 +104,10 @@ def main():
             epoch_loss += loss.item()
     
         scheduler.step()
-        avg_loss = epoch_loss / len(train_loader)
+        avg_train_loss = epoch_loss / len(train_loader)
+        train_losses.append(avg_train_loss)
         current_lr = optimizer.param_groups[0]['lr']
-        print(f'Epoch {epoch+1}, Average Training Loss: {avg_loss:.4f}, Learning Rate: {current_lr:.6f}')
+        print(f'Epoch {epoch+1}, Average Training Loss: {avg_train_loss:.4f}, Learning Rate: {current_lr:.6f}')
 
         # Validation
         model.eval()
@@ -103,10 +121,21 @@ def main():
                     loss = loss_function(recons, val_batch, means, logvars)
                 val_loss += loss.item()
         avg_val_loss = val_loss / len(val_loader)
+        val_losses.append(avg_val_loss)
         print(f'Epoch {epoch+1}, Average Validation Loss: {avg_val_loss:.4f}')
 
     # Save the trained model
     torch.save(model.state_dict(), 'vae_model.pth')
+
+    # Plot training vs validation loss
+    plt.figure(figsize=(10, 5))
+    plt.plot(train_losses, label='Training Loss')
+    plt.plot(val_losses, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training vs Validation Loss')
+    plt.legend()
+    plt.show()
 
 if __name__ == "__main__":
     main()
