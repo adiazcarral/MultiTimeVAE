@@ -4,22 +4,24 @@ from torch.utils.data import DataLoader, Dataset
 import pandas as pd
 import numpy as np
 from torch.amp import autocast, GradScaler
-import matplotlib.pyplot as plt
 from neuralstars.core.multimodal_vae import VAE, loss_function
-from neuralstars.data.utils import convert_mat_to_csv
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def load_data(mat_file_path: str, csv_file_path: str) -> pd.DataFrame:
+def load_data(file_path: str) -> pd.DataFrame:
     try:
-        # Convert .mat file to CSV
-        data = convert_mat_to_csv(mat_file_path, csv_file_path)
+        data = pd.read_csv(
+            file_path,
+            delimiter=";",
+            decimal=".",
+            parse_dates=["Date-UTC"],
+            index_col="Date-UTC",
+        )
         print(f"Dataset loaded successfully with {data.shape[0]} rows and {data.shape[1]} columns.")
         return data
     except FileNotFoundError:
-        raise FileNotFoundError(f"File not found at {mat_file_path}")
-    except KeyError as e:
-        raise KeyError(e)
+        raise FileNotFoundError(f"File not found at {file_path}")
     except Exception as e:
         raise ValueError(f"An error occurred while loading the dataset: {e}")
 
@@ -35,15 +37,10 @@ class TimeSeriesDataset(Dataset):
         return torch.tensor(self.data[idx:idx+self.seq_len+1])
 
 def main():
-    # File paths
-    mat_file_path = 'toydata.mat'
-    csv_file_path = 'toydata.csv'
-    seq_len = 500
-
-    # Load dataset from .mat file and convert to CSV
-    df = load_data(mat_file_path, csv_file_path=csv_file_path)
-    data = df.drop(columns=["obs_DateTime"]).values
-    time_steps = df["obs_DateTime"].values
+    # Load dataset from CSV
+    csv_file = 'synthetic_caos_dataset.csv'
+    seq_len = 500  # Reduced sequence length to 500
+    data = load_data(csv_file).values
 
     # Split dataset into train, validation, and test sets based on time
     train_size = int(0.7 * len(data))
@@ -62,7 +59,7 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     input_dims = [1, 1, 1]
-    hidden_dim = 128
+    hidden_dim = 64
     latent_dim = 16
 
     model = VAE(input_dims, hidden_dim, latent_dim).to(device)
@@ -126,10 +123,6 @@ def main():
     plt.title('Training vs Validation Loss')
     plt.legend()
     plt.show()
-
-    # Save time_steps for future plotting
-    np.save('time_steps.npy', time_steps)
-    print("Time steps saved successfully.")
 
 if __name__ == "__main__":
     main()

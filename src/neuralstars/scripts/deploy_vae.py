@@ -54,7 +54,7 @@ def iterative_forecast(model, initial_sequence, num_steps):
 
 if __name__ == "__main__":
     # Load dataset from CSV
-    csv_file = 'synthetic_caos_dataset.csv'
+    csv_file = 'synthetic_caos_dataset1.csv'
     seq_len = 500
     data = load_data(csv_file).values
 
