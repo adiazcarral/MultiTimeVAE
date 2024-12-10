@@ -71,7 +71,7 @@ def load_mat(file_path: str, key: str):
     Returns:
         pd.DataFrame: The loaded data as a pandas DataFrame.
     """
-    data = scipy.io.loadmat(file_path)
+    data = scipy.io.loadmat(file_path, math_dtype=False)
 
     # Inspect the keys in the loaded data
     print("Keys in the .mat file:", data.keys())
@@ -84,3 +84,52 @@ def load_mat(file_path: str, key: str):
         return df
     else:
         raise KeyError(f"Key '{key}' not found in the .mat file.")
+
+def convert_mat_to_csv(mat_file_path: str, csv_file_path: str):
+    """
+    Convert a .mat file to a CSV file.
+
+    Args:
+        mat_file_path (str): Path to the .mat file.
+        csv_file_path (str): Path to save the CSV file.
+    """
+    data = scipy.io.loadmat(mat_file_path)
+    
+    # Extract the data
+    if all(key in data for key in ['obs_p', 'obs_q', 'obs_teta']):
+        df = pd.DataFrame({
+            'obs_p': data['obs_p'].flatten(),
+            'obs_q': data['obs_q'].flatten(),
+            'obs_teta': data['obs_teta'].flatten(),
+        })
+
+        # Handle missing values in obs_teta (for example, using forward fill method)
+        df['obs_teta'].fillna(method='ffill', inplace=True)
+        
+        # Check if obs_DateTime is present
+        if 'obs_DateTime' in data and data['obs_DateTime'] is not None:
+            df['obs_DateTime'] = pd.to_datetime(data['obs_DateTime'].flatten(), unit='s')
+        else:
+            df['obs_DateTime'] = pd.Series([pd.NaT] * len(df))
+        
+        # Save to CSV
+        df.to_csv(csv_file_path, index=False)
+        print(f"Successfully converted {mat_file_path} to {csv_file_path}")
+        return df
+    else:
+        raise KeyError("One or more keys not found in the .mat file.")
+
+
+
+
+def inspect_mat_file(mat_file_path: str):
+    """
+    Inspect the contents of a .mat file and list all keys.
+
+    Args:
+        mat_file_path (str): Path to the .mat file.
+    """
+    data = scipy.io.loadmat(mat_file_path)
+    print("Keys in the .mat file:", data.keys())
+
+
