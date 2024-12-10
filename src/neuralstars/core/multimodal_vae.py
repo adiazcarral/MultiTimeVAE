@@ -1,3 +1,4 @@
+# multimodal_vae.py
 import torch
 import torch.nn as nn
 
@@ -23,11 +24,11 @@ class Decoder(nn.Module):
         self.lstm = nn.LSTM(latent_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, output_dim)
 
-    def forward(self, z, hidden):
+    def forward(self, z):
         z = z.unsqueeze(1)  # Adding the time dimension
-        out, hidden = self.lstm(z, hidden)
+        out, _ = self.lstm(z)
         x_recon = self.fc(out)
-        return x_recon.squeeze(1), hidden
+        return x_recon.squeeze(1)  # Removing the time dimension
 
 class VAE(nn.Module):
     def __init__(self, input_dims, hidden_dim, latent_dim):
@@ -42,21 +43,18 @@ class VAE(nn.Module):
 
     def forward(self, x):
         means, logvars, zs, recons = [], [], [], []
-        hidden_states = []
         for i, encoder in enumerate(self.encoders):
             input_slice = x[:, :, i:i+1]
             mean, logvar = encoder(input_slice)
             z = self.reparameterize(mean, logvar)
-            hidden_states.append(None)  # Initialize hidden states for decoders
+            recon = self.decoders[i](z)
             means.append(mean)
             logvars.append(logvar)
             zs.append(z)
-        for i, decoder in enumerate(self.decoders):
-            recon, hidden_states[i] = decoder(zs[i], hidden_states[i])
             recons.append(recon)
         return means, logvars, zs, torch.cat(recons, dim=1)
 
 def loss_function(recons, x, means, logvars):
-    recon_loss = sum([torch.sum((recon - x[:, :, i:i+1])**2) for i, recon in enumerate(recons)])
+    recon_loss = torch.sum((recons - x[:, -1, :])**2)
     kl_loss = -0.5 * sum([torch.sum(1 + logvar - mean.pow(2) - logvar.exp()) for mean, logvar in zip(means, logvars)])
     return recon_loss + kl_loss
