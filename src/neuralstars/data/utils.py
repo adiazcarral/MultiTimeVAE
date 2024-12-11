@@ -85,3 +85,20 @@ def load_mat(file_path: str, key: str):
     else:
         raise KeyError(f"Key '{key}' not found in the .mat file.")
 
+def load_toy_data(file_path: str):
+    """
+    Load and preprocess the toy dataset.
+
+    Args:
+        file_path (str): Path to the CSV file.
+
+    Returns:
+        pd.DataFrame: The preprocessed data as a pandas DataFrame.
+    """
+    data = pd.read_csv(file_path)
+    
+    # Interpolate missing values in obs_teta using linear interpolation and save the result
+    data['obs_teta'] = data['obs_teta'].interpolate(method='linear', limit_direction='forward', axis=0)
+    print(data["obs_teta"])
+    return data
+
