@@ -99,6 +99,6 @@ def load_toy_data(file_path: str):
     
     # Interpolate missing values in obs_teta using linear interpolation and save the result
     data['obs_teta'] = data['obs_teta'].interpolate(method='linear', limit_direction='forward', axis=0)
-    print(data["obs_teta"])
+    
     return data
 

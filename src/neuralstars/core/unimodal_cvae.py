@@ -9,16 +9,17 @@ class Encoder(nn.Module):
         self.fc_mean = nn.Linear(hidden_dim, latent_dim)
         self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
 
+   # In Encoder class
     def forward(self, x, cond):
-        # Ensure cond has the same sequence length as x
-        cond_expanded = cond.unsqueeze(1).expand(-1, x.size(1), -1)
-        x = torch.cat([x, cond_expanded], dim=-1)
-        x = self.embedding(x)
-        _, (h, _) = self.lstm(x)
+        cond = cond.unsqueeze(1).repeat(1, x.size(1), 1)  # Expand cond to match the sequence length of x
+        x_cond = torch.cat([x, cond], dim=-1)  # Concatenate x and cond
+        x_cond = self.embedding(x_cond)
+        _, (h, _) = self.lstm(x_cond)
         h = h[-1]
         mean = self.fc_mean(h)
         logvar = self.fc_logvar(h)
         return mean, logvar
+
 
 class Decoder(nn.Module):
     def __init__(self, latent_dim, hidden_dim, output_dim, cond_dim):
@@ -26,13 +27,14 @@ class Decoder(nn.Module):
         self.lstm = nn.LSTM(latent_dim + cond_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, output_dim)
 
+    # In Decoder class
     def forward(self, z, cond, hidden):
-        cond_expanded = cond.unsqueeze(1).expand(-1, z.size(1), -1)
-        z = z.unsqueeze(1).expand(-1, cond.size(1), -1)
-        z = torch.cat([z, cond_expanded], dim=-1)
-        out, hidden = self.lstm(z, hidden)
+        cond = cond.unsqueeze(1).repeat(1, z.size(1), 1)  # Expand cond to match the sequence length of z
+        z_cond = torch.cat([z, cond], dim=-1)  # Concatenate z and cond
+        out, hidden = self.lstm(z_cond, hidden)
         x_recon = self.fc(out)
         return x_recon.squeeze(1), hidden
+
 
 class ConditionalVAE(nn.Module):
     def __init__(self, input_dim, cond_dim, hidden_dim, latent_dim):
@@ -48,7 +50,7 @@ class ConditionalVAE(nn.Module):
     def forward(self, x, cond):
         mean, logvar = self.encoder(x, cond)
         z = self.reparameterize(mean, logvar)
-        x_recon, _ = self.decoder(z.unsqueeze(1), cond, None)
+        x_recon, _ = self.decoder(z, cond, None)
         return mean, logvar, z, x_recon
 
 def loss_function(recons, x, mean, logvar):

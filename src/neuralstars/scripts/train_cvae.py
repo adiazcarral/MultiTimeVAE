@@ -33,13 +33,13 @@ class TimeSeriesDataset(Dataset):
 
 def main():
     # File path
-    csv_file_path = 'C:/Users/diaz/work/neural-stars/neuralstars/src/neuralstars/scripts/toydata.csv'  # Just the filename
+    csv_file_path = 'toydata.csv'  # Just the filename
     seq_len = 500
 
     # Load dataset
     df = load_data(csv_file_path)
-    print("Head of the dataset after interpolation:")
-    print(df.head())
+    # print("Head of the dataset after interpolation:")
+    # print(df.head())
 
     # Use only the first half of the dataset
     half_index = len(df) // 2
