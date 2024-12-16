@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader, Dataset
 from torch.amp import autocast
 import matplotlib.pyplot as plt
 from neuralstars.core.multimodal_vae import VAE, loss_function
+from neuralstars.data.utils import load_toy_data
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -54,9 +55,12 @@ def iterative_forecast(model, initial_sequence, num_steps):
 
 if __name__ == "__main__":
     # Load dataset from CSV
-    csv_file = 'synthetic_caos_dataset.csv'
+    # csv_file = 'synthetic_caos_dataset.csv'
+    # data = load_data(csv_file).values
     seq_len = 500
-    data = load_data(csv_file).values
+    
+    csv_file = 'toydata.csv'
+    data = load_toy_data(csv_file).values
 
     # Split dataset into train, validation, and test sets based on time
     train_size = int(0.7 * len(data))
@@ -69,7 +73,7 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     input_dims = [1, 1, 1]
-    hidden_dim = 128
+    hidden_dim = 64
     latent_dim = 16
 
     model = VAE(input_dims, hidden_dim, latent_dim).to(device)

@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from torch.amp import autocast, GradScaler
 from neuralstars.core.multimodal_vae import VAE, loss_function
+from neuralstars.data.utils import load_toy_data
 import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,9 +39,11 @@ class TimeSeriesDataset(Dataset):
 
 def main():
     # Load dataset from CSV
-    csv_file = 'synthetic_caos_dataset.csv'
+    # csv_file = 'synthetic_caos_dataset.csv'
+    # data = load_data(csv_file).values
+    csv_file = 'toydata.csv'
+    data = load_toy_data(csv_file).values
     seq_len = 500  # Reduced sequence length to 500
-    data = load_data(csv_file).values
 
     # Split dataset into train, validation, and test sets based on time
     train_size = int(0.7 * len(data))

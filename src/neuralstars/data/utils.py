@@ -97,8 +97,17 @@ def load_toy_data(file_path: str):
     """
     data = pd.read_csv(file_path)
     
-    # Interpolate missing values in obs_teta using linear interpolation and save the result
-    data['obs_teta'] = data['obs_teta'].interpolate(method='linear', limit_direction='forward', axis=0)
+    print("Before interpolation:")
+    print(data.head(10))  # Print the first 10 rows before interpolation
+    
+    # Forward fill and then interpolate missing values in obs_teta
+    data['obs_teta'] = data['obs_teta'].ffill().interpolate(method='spline', order=4, limit_direction='both')
+    
+    print("After interpolation:")
+    print(data.head(10))  # Print the first 10 rows after interpolation
     
     return data
+
+
+
 

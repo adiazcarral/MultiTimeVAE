@@ -4,6 +4,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from neuralstars.data.loader import load_data
+from neuralstars.data.utils import load_toy_data
 
 def analyze_data(dataset_path=None, use_synthetic=False):
     """
@@ -25,7 +26,8 @@ def analyze_data(dataset_path=None, use_synthetic=False):
         if not dataset_path:
             raise ValueError("Please provide a dataset path when use_synthetic is False.")
         print(f"Loading real dataset from {dataset_path}...")
-        data = load_data(dataset_path)
+        # data = load_data(dataset_path)
+        data = load_toy_data(dataset_path)
     
     ## Ensure 'Date-UTC' is a datetime type
     # data['Date-UTC'] = pd.to_datetime(data['Date-UTC'])
@@ -102,7 +104,7 @@ def analyze_data(dataset_path=None, use_synthetic=False):
     # 6. ACF and PACF
     from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 
-    for column in data.columns:
+    """ for column in data.columns:
         print(f"\nAutocorrelation and Partial Autocorrelation for {column}")
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
         plot_acf(data[column].dropna(), ax=axes[0])
@@ -110,7 +112,7 @@ def analyze_data(dataset_path=None, use_synthetic=False):
         axes[0].set_title(f"ACF for {column}")
         axes[1].set_title(f"PACF for {column}")
         plt.tight_layout()
-        plt.show()
+        plt.show() """
 
     # Summary
     print("\nAnalysis Complete.")
