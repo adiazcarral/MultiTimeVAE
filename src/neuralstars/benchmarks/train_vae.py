@@ -3,16 +3,15 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 import pandas as pd
 import numpy as np
-from torch.amp import autocast, GradScaler
+from torch.cuda.amp import autocast, GradScaler
 import matplotlib.pyplot as plt
-from neuralstars.core.unimodal_cvae import ConditionalVAE, loss_function
-from neuralstars.data.utils import load_toy_data
+from neuralstars.core.unimodal_vae import VAE, loss_function
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def load_data(file_path: str) -> pd.DataFrame:
     try:
-        data = load_toy_data(file_path)
+        data = pd.read_csv(file_path)
         print(f"Dataset loaded successfully with {data.shape[0]} rows and {data.shape[1]} columns.")
         return data
     except FileNotFoundError:
@@ -33,43 +32,38 @@ class TimeSeriesDataset(Dataset):
 
 def main():
     # File path
-    csv_file_path = 'toydata.csv'  # Just the filename
+    csv_file_path = 'toydata.csv'
+
     seq_len = 500
 
     # Load dataset
     df = load_data(csv_file_path)
-    # print("Head of the dataset after interpolation:")
-    # print(df.head())
-
+    
     # Use only the first half of the dataset
     half_index = len(df) // 2
     df_half = df[:half_index]
 
     obs_p = df_half[['obs_p']].values
-    cond_data = df_half[['obs_q', 'obs_teta']].values
 
     # Split dataset into train and test sets
     train_size = int(0.8 * len(obs_p))  # 80% for training, 20% for testing
     train_obs_p = obs_p[:train_size]
     test_obs_p = obs_p[train_size:]
-    train_cond_data = cond_data[:train_size]
-    test_cond_data = cond_data[train_size:]
 
     # Prepare datasets
-    train_dataset = TimeSeriesDataset(np.hstack([train_obs_p, train_cond_data]), seq_len)
-    test_dataset = TimeSeriesDataset(np.hstack([test_obs_p, test_cond_data]), seq_len)
+    train_dataset = TimeSeriesDataset(train_obs_p, seq_len)
+    test_dataset = TimeSeriesDataset(test_obs_p, seq_len)
 
     train_loader = DataLoader(train_dataset, batch_size=128, shuffle=False, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
-    input_dim = 1
-    cond_dim = 2
+    input_dim = seq_len
     hidden_dim = 128
     latent_dim = 16
 
-    model = ConditionalVAE(input_dim, cond_dim, hidden_dim, latent_dim).to(device)
+    model = VAE(input_dim, hidden_dim, latent_dim).to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    scaler = GradScaler('cuda')  # Initialize GradScaler for mixed precision training
+    scaler = GradScaler()  # Initialize GradScaler for mixed precision training
 
     print("Starting training...")
 
@@ -81,13 +75,12 @@ def main():
         epoch_loss = 0
         for batch in train_loader:
             batch = batch.to(device)
-            obs_p = batch[:, :, :1]
-            cond_data = batch[:, :, 1:]
+            obs_p = batch[:, :-1, 0]  # Use only obs_p for training
             optimizer.zero_grad()
             
-            with autocast('cuda'):  # Mixed precision context
-                mean, logvar, z, recons = model(obs_p[:, :-1, :], cond_data[:, :-1, :])
-                loss = loss_function(recons, obs_p[:, :-1, :], mean, logvar)
+            with autocast():  # Mixed precision context
+                recon, mean, logvar = model(obs_p)
+                loss = loss_function(recon, obs_p, mean, logvar)
         
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -105,18 +98,17 @@ def main():
         with torch.no_grad():
             for batch in test_loader:
                 batch = batch.to(device)
-                obs_p = batch[:, :, :1]
-                cond_data = batch[:, :, 1:]
-                with autocast('cuda'):  # Mixed precision context
-                    mean, logvar, z, recons = model(obs_p[:, :-1, :], cond_data[:, :-1, :])
-                    loss = loss_function(recons, obs_p[:, :-1, :], mean, logvar)
+                obs_p = batch[:, :-1, 0]
+                with autocast():  # Mixed precision context
+                    recon, mean, logvar = model(obs_p)
+                    loss = loss_function(recon, obs_p, mean, logvar)
                 epoch_loss += loss.item()
         avg_test_loss = epoch_loss / len(test_loader)
         test_losses.append(avg_test_loss)
         print(f'Epoch {epoch+1}, Average Test Loss: {avg_test_loss:.4f}')
 
     # Save the trained model
-    torch.save(model.state_dict(), 'conditional_vae_model.pth')
+    torch.save(model.state_dict(), 'vae_model.pth')
 
     # Plot training vs test loss
     plt.figure(figsize=(10, 5))
@@ -128,5 +120,32 @@ def main():
     plt.legend()
     plt.show()
 
+    # Reconstruct the test set
+    model.eval()
+    reconstructed = []
+    originals = []
+    with torch.no_grad():
+        for batch in test_loader:
+            batch = batch.to(device)
+            obs_p = batch[:, :-1, 0]
+            with autocast():  # Mixed precision context
+                recon, _, _ = model(obs_p)
+            reconstructed.append(recon.cpu().numpy())
+            originals.append(obs_p.cpu().numpy())
+
+    reconstructed = np.concatenate(reconstructed)
+    originals = np.concatenate(originals)
+
+    # Plot original vs reconstructed for the first sequence
+    plt.figure(figsize=(10, 5))
+    plt.plot(originals[0], label='Original')
+    plt.plot(reconstructed[0], label='Reconstructed')
+    plt.xlabel('Time Step')
+    plt.ylabel('Value')
+    plt.title('Original vs Reconstructed Sequence')
+    plt.legend()
+    plt.show()
+
 if __name__ == "__main__":
     main()
+
