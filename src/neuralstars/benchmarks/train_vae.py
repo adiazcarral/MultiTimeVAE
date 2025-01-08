@@ -3,7 +3,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 import pandas as pd
 import numpy as np
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 import matplotlib.pyplot as plt
 from neuralstars.core.unimodal_vae import LSTM_VAE, loss_function
 
@@ -28,27 +28,27 @@ class TimeSeriesDataset(Dataset):
         return len(self.data) - self.seq_len
 
     def __getitem__(self, idx):
-        return torch.tensor(self.data[idx:idx+self.seq_len+1])
+        return torch.tensor(self.data[idx:idx+self.seq_len])
 
 def main():
     # File path
-    csv_file_path = 'toydata.csv'  # Just the filename
+    csv_file_path = 'toydata.csv'
 
-    seq_len = 500
+    seq_len = 200
 
     # Load dataset
     df = load_data(csv_file_path)
 
     obs_p = df[['obs_p']].values
 
-    # Plot the original time series variable
-    plt.figure(figsize=(10, 5))
-    plt.plot(obs_p, label='Original Time Series')
-    plt.xlabel('Time Step')
-    plt.ylabel('obs_p Value')
-    plt.title('Original Time Series')
-    plt.legend()
-    plt.show()
+    # Hide the plot of the data
+    # plt.figure(figsize=(10, 5))
+    # plt.plot(obs_p, label='Original Time Series')
+    # plt.xlabel('Time Step')
+    # plt.ylabel('obs_p Value')
+    # plt.title('Original Time Series')
+    # plt.legend()
+    # plt.show()
 
     # Split dataset into train, validation, and test sets
     train_size = int(0.7 * len(obs_p))  # 70% for training
@@ -69,8 +69,8 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     input_dim = 1
-    hidden_dim = 128
-    latent_dim = 16
+    hidden_dim = 64
+    latent_dim = 10
     num_layers = 2  # Number of LSTM layers
 
     model = LSTM_VAE(input_dim, hidden_dim, latent_dim, num_layers, seq_len).to(device)
@@ -82,12 +82,12 @@ def main():
     train_losses = []
     valid_losses = []
 
-    for epoch in range(100):
+    for epoch in range(20):
         model.train()
         epoch_loss = 0
         for batch in train_loader:
             batch = batch.to(device)
-            obs_p = batch[:, :-1].unsqueeze(-1)  # Ensure input shape is (batch_size, seq_len, input_dim)
+            obs_p = batch.view(batch.size(0), -1, input_dim)  # Ensure input shape is (batch_size, seq_len, input_dim)
             optimizer.zero_grad()
             
             with autocast(device_type='cuda'):  # Mixed precision context
@@ -110,7 +110,7 @@ def main():
         with torch.no_grad():
             for batch in valid_loader:
                 batch = batch.to(device)
-                obs_p = batch[:, :-1].unsqueeze(-1)  # Ensure input shape is (batch_size, seq_len, input_dim)
+                obs_p = batch.view(batch.size(0), -1, input_dim)  # Ensure input shape is (batch_size, seq_len, input_dim)
                 with autocast(device_type='cuda'):  # Mixed precision context
                     recon, mean, logvar = model(obs_p)
                     loss = loss_function(recon, obs_p, mean, logvar)
@@ -139,7 +139,7 @@ def main():
     with torch.no_grad():
         for batch in test_loader:
             batch = batch.to(device)
-            obs_p = batch[:, :-1].unsqueeze(-1)  # Ensure input shape is (batch_size, seq_len, input_dim)
+            obs_p = batch.view(batch.size(0), -1, input_dim)  # Ensure input shape is (batch_size, seq_len, input_dim)
             with autocast(device_type='cuda'):  # Mixed precision context
                 recon, _, _ = model(obs_p)
             reconstructed.append(recon.cpu().numpy())
@@ -158,14 +158,14 @@ def main():
     plt.legend()
     plt.show()
 
-    # Plot predicted vs actual for the test set
+    # Regression plot: Predicted vs. Measured values
     plt.figure(figsize=(10, 5))
-    plt.plot(originals.flatten(), label='Actual Test Set')
-    plt.plot(reconstructed.flatten(), linestyle='--', label='Predicted Test Set')
-    plt.xlabel('Time Step')
-    plt.ylabel('Value')
-    plt.title('Actual vs Predicted Test Set')
-    plt.legend()
+    plt.scatter(originals.flatten(), reconstructed.flatten(), alpha=0.5)
+    plt.plot([originals.min(), originals.max()], [originals.min(), originals.max()], 'r--')  # Line of perfect prediction
+    plt.xlabel('Measured')
+    plt.ylabel('Predicted')
+    plt.title('Predicted vs. Measured Values')
+    plt.legend(['Prediction', 'Data Points'])
     plt.show()
 
 if __name__ == "__main__":
