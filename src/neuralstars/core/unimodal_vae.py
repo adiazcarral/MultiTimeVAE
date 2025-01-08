@@ -1,22 +1,20 @@
 import torch
 import torch.nn.functional as F
 
-class VAE(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim, latent_dim):
-        super(VAE, self).__init__()
-        self.encoder = torch.nn.Sequential(
-            torch.nn.Linear(input_dim, hidden_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_dim, latent_dim * 2)  # Latent mean and log variance
-        )
-        self.decoder = torch.nn.Sequential(
-            torch.nn.Linear(latent_dim, hidden_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_dim, input_dim)
-        )
+class LSTM_VAE(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim, latent_dim, num_layers, seq_len):
+        super(LSTM_VAE, self).__init__()
+        self.seq_len = seq_len
+        self.encoder_lstm = torch.nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
+        self.hidden_to_z = torch.nn.Linear(hidden_dim, latent_dim * 2)  # Latent mean and log variance
+        self.z_to_hidden = torch.nn.Linear(latent_dim, hidden_dim)
+        self.decoder_lstm = torch.nn.LSTM(latent_dim, hidden_dim, num_layers, batch_first=True)
+        self.decoder_output = torch.nn.Linear(hidden_dim, input_dim)
 
     def encode(self, x):
-        h = self.encoder(x)
+        _, (h, _) = self.encoder_lstm(x)
+        h = h[-1]  # Use the last layer's hidden state
+        h = self.hidden_to_z(h)
         mean, logvar = h.chunk(2, dim=-1)
         return mean, logvar
 
@@ -26,7 +24,10 @@ class VAE(torch.nn.Module):
         return mean + eps * std
 
     def decode(self, z):
-        return self.decoder(z)
+        z = z.unsqueeze(1).repeat(1, self.seq_len, 1)  # Repeat z for each time step
+        h = self.z_to_hidden(z)
+        out, _ = self.decoder_lstm(h)
+        return self.decoder_output(out)
 
     def forward(self, x):
         mean, logvar = self.encode(x)

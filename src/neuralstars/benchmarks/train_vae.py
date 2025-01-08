@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from torch.cuda.amp import autocast, GradScaler
 import matplotlib.pyplot as plt
-from neuralstars.core.unimodal_vae import VAE, loss_function
+from neuralstars.core.unimodal_vae import LSTM_VAE, loss_function
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -32,53 +32,65 @@ class TimeSeriesDataset(Dataset):
 
 def main():
     # File path
-    csv_file_path = 'toydata.csv'
+    csv_file_path = 'toydata.csv'  # Just the filename
 
     seq_len = 500
 
     # Load dataset
     df = load_data(csv_file_path)
-    
-    # Use only the first half of the dataset
-    half_index = len(df) // 2
-    df_half = df[:half_index]
 
-    obs_p = df_half[['obs_p']].values
+    obs_p = df[['obs_p']].values
 
-    # Split dataset into train and test sets
-    train_size = int(0.8 * len(obs_p))  # 80% for training, 20% for testing
+    # Plot the original time series variable
+    plt.figure(figsize=(10, 5))
+    plt.plot(obs_p, label='Original Time Series')
+    plt.xlabel('Time Step')
+    plt.ylabel('obs_p Value')
+    plt.title('Original Time Series')
+    plt.legend()
+    plt.show()
+
+    # Split dataset into train, validation, and test sets
+    train_size = int(0.7 * len(obs_p))  # 70% for training
+    valid_size = int(0.15 * len(obs_p))  # 15% for validation
+    test_size = len(obs_p) - train_size - valid_size  # 15% for testing
+
     train_obs_p = obs_p[:train_size]
-    test_obs_p = obs_p[train_size:]
+    valid_obs_p = obs_p[train_size:train_size+valid_size]
+    test_obs_p = obs_p[train_size+valid_size:]
 
     # Prepare datasets
     train_dataset = TimeSeriesDataset(train_obs_p, seq_len)
+    valid_dataset = TimeSeriesDataset(valid_obs_p, seq_len)
     test_dataset = TimeSeriesDataset(test_obs_p, seq_len)
 
     train_loader = DataLoader(train_dataset, batch_size=128, shuffle=False, num_workers=4)
+    valid_loader = DataLoader(valid_dataset, batch_size=128, shuffle=False, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
-    input_dim = seq_len
+    input_dim = 1
     hidden_dim = 128
     latent_dim = 16
+    num_layers = 2  # Number of LSTM layers
 
-    model = VAE(input_dim, hidden_dim, latent_dim).to(device)
+    model = LSTM_VAE(input_dim, hidden_dim, latent_dim, num_layers, seq_len).to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     scaler = GradScaler()  # Initialize GradScaler for mixed precision training
 
     print("Starting training...")
 
     train_losses = []
-    test_losses = []
+    valid_losses = []
 
     for epoch in range(100):
         model.train()
         epoch_loss = 0
         for batch in train_loader:
             batch = batch.to(device)
-            obs_p = batch[:, :-1, 0]  # Use only obs_p for training
+            obs_p = batch[:, :-1].unsqueeze(-1)  # Ensure input shape is (batch_size, seq_len, input_dim)
             optimizer.zero_grad()
             
-            with autocast():  # Mixed precision context
+            with autocast(device_type='cuda'):  # Mixed precision context
                 recon, mean, logvar = model(obs_p)
                 loss = loss_function(recon, obs_p, mean, logvar)
         
@@ -96,27 +108,27 @@ def main():
         model.eval()
         epoch_loss = 0
         with torch.no_grad():
-            for batch in test_loader:
+            for batch in valid_loader:
                 batch = batch.to(device)
-                obs_p = batch[:, :-1, 0]
-                with autocast():  # Mixed precision context
+                obs_p = batch[:, :-1].unsqueeze(-1)  # Ensure input shape is (batch_size, seq_len, input_dim)
+                with autocast(device_type='cuda'):  # Mixed precision context
                     recon, mean, logvar = model(obs_p)
                     loss = loss_function(recon, obs_p, mean, logvar)
                 epoch_loss += loss.item()
-        avg_test_loss = epoch_loss / len(test_loader)
-        test_losses.append(avg_test_loss)
-        print(f'Epoch {epoch+1}, Average Test Loss: {avg_test_loss:.4f}')
+        avg_valid_loss = epoch_loss / len(valid_loader)
+        valid_losses.append(avg_valid_loss)
+        print(f'Epoch {epoch+1}, Average Validation Loss: {avg_valid_loss:.4f}')
 
     # Save the trained model
-    torch.save(model.state_dict(), 'vae_model.pth')
+    torch.save(model.state_dict(), 'lstm_vae_model.pth')
 
-    # Plot training vs test loss
+    # Plot training vs validation loss
     plt.figure(figsize=(10, 5))
     plt.plot(train_losses, label='Training Loss')
-    plt.plot(test_losses, label='Test Loss')
+    plt.plot(valid_losses, label='Validation Loss')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.title('Training vs Test Loss')
+    plt.title('Training vs Validation Loss')
     plt.legend()
     plt.show()
 
@@ -127,8 +139,8 @@ def main():
     with torch.no_grad():
         for batch in test_loader:
             batch = batch.to(device)
-            obs_p = batch[:, :-1, 0]
-            with autocast():  # Mixed precision context
+            obs_p = batch[:, :-1].unsqueeze(-1)  # Ensure input shape is (batch_size, seq_len, input_dim)
+            with autocast(device_type='cuda'):  # Mixed precision context
                 recon, _, _ = model(obs_p)
             reconstructed.append(recon.cpu().numpy())
             originals.append(obs_p.cpu().numpy())
@@ -136,16 +148,25 @@ def main():
     reconstructed = np.concatenate(reconstructed)
     originals = np.concatenate(originals)
 
-    # Plot original vs reconstructed for the first sequence
+    # Plot original vs reconstructed for the test set
     plt.figure(figsize=(10, 5))
-    plt.plot(originals[0], label='Original')
-    plt.plot(reconstructed[0], label='Reconstructed')
+    plt.plot(originals.flatten(), label='Original Test Set')
+    plt.plot(reconstructed.flatten(), label='Reconstructed Test Set')
     plt.xlabel('Time Step')
     plt.ylabel('Value')
-    plt.title('Original vs Reconstructed Sequence')
+    plt.title('Original vs Reconstructed Test Set')
+    plt.legend()
+    plt.show()
+
+    # Plot predicted vs actual for the test set
+    plt.figure(figsize=(10, 5))
+    plt.plot(originals.flatten(), label='Actual Test Set')
+    plt.plot(reconstructed.flatten(), linestyle='--', label='Predicted Test Set')
+    plt.xlabel('Time Step')
+    plt.ylabel('Value')
+    plt.title('Actual vs Predicted Test Set')
     plt.legend()
     plt.show()
 
 if __name__ == "__main__":
     main()
-
