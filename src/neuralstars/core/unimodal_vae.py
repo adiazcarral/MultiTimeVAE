@@ -12,7 +12,6 @@ class LSTM_VAE(torch.nn.Module):
         self.decoder_output = torch.nn.Linear(hidden_dim, input_dim)
 
     def encode(self, x):
-        x = x.view(x.size(0), self.seq_len, -1)  # Ensure x has shape (batch_size, seq_len, input_dim)
         _, (h, _) = self.encoder_lstm(x)
         h = h[-1]  # Use the last layer's hidden state
         h = self.hidden_to_z(h)
@@ -27,7 +26,6 @@ class LSTM_VAE(torch.nn.Module):
     def decode(self, z):
         z = z.unsqueeze(1).repeat(1, self.seq_len, 1)  # Repeat z for each time step
         h = self.z_to_hidden(z)
-        h = h.view(h.size(0), self.seq_len, -1)  # Ensure h has shape (batch_size, seq_len, hidden_dim)
         out, _ = self.decoder_lstm(h)
         return self.decoder_output(out)
 

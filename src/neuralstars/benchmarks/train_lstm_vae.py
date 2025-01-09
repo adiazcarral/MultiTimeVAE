@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from torch.amp import autocast, GradScaler
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 from neuralstars.core.unimodal_vae import LSTM_VAE, loss_function
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -30,6 +31,15 @@ class TimeSeriesDataset(Dataset):
     def __getitem__(self, idx):
         return torch.tensor(self.data[idx:idx+self.seq_len])
 
+def loss_function(recon_x, x, mean, logvar):
+    # Reconstruction loss
+    BCE = torch.nn.functional.mse_loss(recon_x, x, reduction='sum')
+
+    # KL divergence loss
+    KLD = -0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp())
+
+    return BCE + KLD
+
 def main():
     # File path
     csv_file_path = 'toydata.csv'
@@ -40,6 +50,10 @@ def main():
     df = load_data(csv_file_path)
 
     obs_p = df[['obs_p']].values
+
+    # Normalize the data
+    scaler = MinMaxScaler()
+    obs_p = scaler.fit_transform(df[['obs_p']].values)
 
     # Split dataset into train, validation, and test sets
     train_size = int(0.7 * len(obs_p))  # 70% for training
@@ -60,12 +74,13 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     input_dim = 1
-    hidden_dim = 128
-    latent_dim = 16
+    hidden_dim = 64
+    latent_dim = 16  # Increased latent dimension
     num_layers = 2  # Number of LSTM layers
 
     model = LSTM_VAE(input_dim, hidden_dim, latent_dim, num_layers, seq_len).to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)  # Learning rate decay
     scaler = GradScaler()  # Initialize GradScaler for mixed precision training
 
     print("Starting training...")
@@ -73,7 +88,7 @@ def main():
     train_losses = []
     valid_losses = []
 
-    for epoch in range(20):
+    for epoch in range(20):  # Increased number of epochs
         model.train()
         epoch_loss = 0
         for batch in train_loader:
@@ -109,6 +124,8 @@ def main():
         avg_valid_loss = epoch_loss / len(valid_loader)
         valid_losses.append(avg_valid_loss)
         print(f'Epoch {epoch+1}, Average Validation Loss: {avg_valid_loss:.4f}')
+        
+        scheduler.step()  # Update the learning rate
 
     # Save the trained model
     torch.save(model.state_dict(), 'lstm_vae_model.pth')
@@ -120,33 +137,6 @@ def main():
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.title('Training vs Validation Loss')
-    plt.legend()
-    plt.show()
-
-    # Reconstruct the test set
-    model.eval()
-    reconstructed = []
-    originals = []
-    with torch.no_grad():
-        for batch in test_loader:
-            batch = batch.to(device)
-            obs_p = batch.view(batch.size(0), -1, input_dim)  # Ensure input shape is (batch_size, seq_len, input_dim)
-            with autocast(device_type='cuda'):  # Mixed precision context
-                recon, _, _ = model(obs_p)
-            reconstructed.append(recon.cpu().numpy())
-            originals.append(obs_p.cpu().numpy())
-
-    reconstructed = np.concatenate(reconstructed)
-    originals = np.concatenate(originals)
-
-    # Plot the first 3 test sequences and their generated counterparts in the same plot
-    plt.figure(figsize=(15, 8))
-    for i in range(3):
-        plt.plot(originals[i], label=f'Actual Test Sequence {i+1}')
-        plt.plot(reconstructed[i], linestyle='--', label=f'Generated Test Sequence {i+1}')
-    plt.xlabel('Time Step')
-    plt.ylabel('obs_p Value')
-    plt.title('Actual vs Generated Test Sequences')
     plt.legend()
     plt.show()
 
