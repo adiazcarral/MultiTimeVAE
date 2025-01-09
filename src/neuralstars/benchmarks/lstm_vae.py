@@ -34,21 +34,12 @@ def main():
     # File path
     csv_file_path = 'toydata.csv'
 
-    seq_len = 200
+    seq_len = 500
 
     # Load dataset
     df = load_data(csv_file_path)
 
     obs_p = df[['obs_p']].values
-
-    # Hide the plot of the data
-    # plt.figure(figsize=(10, 5))
-    # plt.plot(obs_p, label='Original Time Series')
-    # plt.xlabel('Time Step')
-    # plt.ylabel('obs_p Value')
-    # plt.title('Original Time Series')
-    # plt.legend()
-    # plt.show()
 
     # Split dataset into train, validation, and test sets
     train_size = int(0.7 * len(obs_p))  # 70% for training
@@ -69,8 +60,8 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     input_dim = 1
-    hidden_dim = 64
-    latent_dim = 10
+    hidden_dim = 128
+    latent_dim = 16
     num_layers = 2  # Number of LSTM layers
 
     model = LSTM_VAE(input_dim, hidden_dim, latent_dim, num_layers, seq_len).to(device)
@@ -148,24 +139,15 @@ def main():
     reconstructed = np.concatenate(reconstructed)
     originals = np.concatenate(originals)
 
-    # Plot original vs reconstructed for the test set
-    plt.figure(figsize=(10, 5))
-    plt.plot(originals.flatten(), label='Original Test Set')
-    plt.plot(reconstructed.flatten(), label='Reconstructed Test Set')
+    # Plot the first 3 test sequences and their generated counterparts in the same plot
+    plt.figure(figsize=(15, 8))
+    for i in range(3):
+        plt.plot(originals[i], label=f'Actual Test Sequence {i+1}')
+        plt.plot(reconstructed[i], linestyle='--', label=f'Generated Test Sequence {i+1}')
     plt.xlabel('Time Step')
-    plt.ylabel('Value')
-    plt.title('Original vs Reconstructed Test Set')
+    plt.ylabel('obs_p Value')
+    plt.title('Actual vs Generated Test Sequences')
     plt.legend()
-    plt.show()
-
-    # Regression plot: Predicted vs. Measured values
-    plt.figure(figsize=(10, 5))
-    plt.scatter(originals.flatten(), reconstructed.flatten(), alpha=0.5)
-    plt.plot([originals.min(), originals.max()], [originals.min(), originals.max()], 'r--')  # Line of perfect prediction
-    plt.xlabel('Measured')
-    plt.ylabel('Predicted')
-    plt.title('Predicted vs. Measured Values')
-    plt.legend(['Prediction', 'Data Points'])
     plt.show()
 
 if __name__ == "__main__":
