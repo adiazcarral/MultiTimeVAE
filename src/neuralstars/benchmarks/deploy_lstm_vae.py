@@ -54,13 +54,13 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     input_dim = 1
-    hidden_dim = 64  # Match the hidden dimension used in training
+    hidden_dim = 64
     latent_dim = 16  # Match the latent dimension used in training
-    num_layers = 2  # Match the number of LSTM layers used in training
+    num_layers = 3  # Number of LSTM layers
 
     # Load the trained model
     model = LSTM_VAE(input_dim, hidden_dim, latent_dim, num_layers, seq_len).to(device)
-    model.load_state_dict(torch.load('lstm_vae_model.pth', map_location=device))
+    model.load_state_dict(torch.load('lstm_vae_model.pth', map_location=device, weights_only=True))
     model.eval()
 
     # Generate reconstructed sequences for the first test window

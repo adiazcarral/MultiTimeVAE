@@ -76,7 +76,7 @@ def main():
     input_dim = 1
     hidden_dim = 64
     latent_dim = 16  # Increased latent dimension
-    num_layers = 2  # Number of LSTM layers
+    num_layers = 3  # Number of LSTM layers
 
     model = LSTM_VAE(input_dim, hidden_dim, latent_dim, num_layers, seq_len).to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
