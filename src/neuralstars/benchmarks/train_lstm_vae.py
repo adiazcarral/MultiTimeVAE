@@ -6,7 +6,7 @@ import numpy as np
 from torch.amp import autocast, GradScaler
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from neuralstars.core.unimodal_vae import LSTM_VAE, loss_function
+from neuralstars.core.unimodal_lstm_vae import LSTM_VAE, loss_function
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -74,8 +74,8 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False, num_workers=4)
 
     input_dim = 1
-    hidden_dim = 64
-    latent_dim = 16  # Increased latent dimension
+    hidden_dim = 128
+    latent_dim = 32  # Increased latent dimension
     num_layers = 3  # Number of LSTM layers
 
     model = LSTM_VAE(input_dim, hidden_dim, latent_dim, num_layers, seq_len).to(device)

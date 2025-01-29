@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from neuralstars.core.unimodal_lstm_vae import LSTM_VAE
+from neuralstars.core.unimodal_vae import VAE  # Update import
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -33,7 +33,7 @@ def main():
     # File path
     csv_file_path = 'toydata.csv'
 
-    seq_len = 500
+    seq_len = 50
 
     # Load dataset
     df = load_data(csv_file_path)
@@ -53,14 +53,13 @@ def main():
     test_dataset = TimeSeriesDataset(test_obs_p, seq_len)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
-    input_dim = 1
-    hidden_dim = 64
-    latent_dim = 16  # Match the latent dimension used in training
-    num_layers = 3  # Number of LSTM layers
+    input_dim = seq_len  # Match the input dimension used in training
+    hidden_dim = 128  # Match the hidden dimension used in training
+    latent_dim = 32  # Match the latent dimension used in training
 
     # Load the trained model
-    model = LSTM_VAE(input_dim, hidden_dim, latent_dim, num_layers, seq_len).to(device)
-    model.load_state_dict(torch.load('lstm_vae_model.pth', map_location=device, weights_only=True))
+    model = VAE(input_dim, hidden_dim, latent_dim).to(device)
+    model.load_state_dict(torch.load('vae_model.pth', map_location=device, weights_only=True))
     model.eval()
 
     # Generate reconstructed sequences for the first test window
@@ -70,7 +69,7 @@ def main():
     with torch.no_grad():
         for batch in test_loader:
             batch = batch.to(device)
-            obs_p = batch.view(batch.size(0), -1, input_dim)  # Ensure input shape is (batch_size, seq_len, input_dim)
+            obs_p = batch.view(batch.size(0), -1)  # Ensure input shape is (batch_size, input_dim)
             recon, _, _ = model(obs_p)
             reconstructions.append(recon.cpu().numpy())
             original_sequence.append(obs_p.cpu().numpy())
