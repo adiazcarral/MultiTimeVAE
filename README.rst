@@ -1,26 +1,26 @@
 ============
-neural-stars
+MultiTimeVAE
 ============
 
 
-.. image:: https://img.shields.io/pypi/v/neuralstars.svg
+.. image:: https://img.shields.io/pypi/v/multitimevae.svg
         :target: https://pypi.python.org/pypi/neuralstars
 
-.. image:: https://img.shields.io/travis/adiazcarral/neuralstars.svg
-        :target: https://travis-ci.com/adiazcarral/neuralstars
+.. image:: https://img.shields.io/travis/adiazcarral/multitimevae.svg
+        :target: https://travis-ci.com/adiazcarral/multitimevae
 
-.. image:: https://readthedocs.org/projects/neuralstars/badge/?version=latest
-        :target: https://neuralstars.readthedocs.io/en/latest/?version=latest
+.. image:: https://readthedocs.org/projects/multitimevae/badge/?version=latest
+        :target: https://multitimevae.readthedocs.io/en/latest/?version=latest
         :alt: Documentation Status
 
 
 
 
-Neural Stars: An innovative machine learning framework for learning joint distributions of system-relevant data through probabilistic modeling and multidirectional training. Designed for flexibility, Neural Stars enable predictions across diverse input-output configurations without retraining, supporting system understanding and sustainable AI across various domains.
+MultiTimeVAE: A machine learning framework for learning joint distributions of system-relevant data through probabilistic modeling and multidirectional training. Designed for flexibility, it enables predictions across diverse input-output configurations without retraining, supporting system understanding and sustainable AI across various domains.
 
 
 * Free software: MIT license
-* Documentation: https://neuralstars.readthedocs.io.
+* Documentation: https://multitimevae.readthedocs.io.
 
 
 Features
